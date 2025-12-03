@@ -34,13 +34,34 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Scan Trivy de l'image vulnérable
-      - name: Scan Trivy - Image Vulnérable
+      - name: Scan Trivy - Image Vulnérable (Table)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Scan Trivy - Image Vulnérable (JSON)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
+          format: 'json'
+          output: 'trivy-report-vulnerable.json'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+
+      - name: Scan Trivy - Image Vulnérable (HTML)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: 'trivy-report-vulnerable.html'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
       # Build de l'image sécurisée
@@ -51,13 +72,34 @@ jobs:
           git checkout app.py
 
       # Scan Trivy de l'image sécurisée
-      - name: Scan Trivy - Image Sécurisée
+      - name: Scan Trivy - Image Sécurisée (Table)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Scan Trivy - Image Sécurisée (JSON)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
+          format: 'json'
+          output: 'trivy-report-secure.json'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+
+      - name: Scan Trivy - Image Sécurisée (HTML)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: 'trivy-report-secure.html'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
       # Test de l'image vulnérable
@@ -78,12 +120,27 @@ jobs:
           docker stop test-secure
           docker rm test-secure
 
+      # Upload des rapports Trivy en tant qu'artefacts
+      - name: Upload Rapports Trivy
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-reports
+          path: |
+            trivy-report-vulnerable.json
+            trivy-report-vulnerable.html
+            trivy-report-secure.json
+            trivy-report-secure.html
+          retention-days: 30
+
       - name: Résumé des scans
         run: |
           echo "## 🔒 Analyse de Sécurité Trivy" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Image Vulnérable** : Scannée (vulnérabilités attendues)" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Image Sécurisée** : Scannée (moins de vulnérabilités)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Rapports disponibles** : Téléchargez les artefacts 'trivy-reports'" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Les deux images ont été testées avec succès !" >> $GITHUB_STEP_SUMMARY
 
