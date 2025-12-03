@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Application vulnérable
+  app-vulnerable:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bibliotheque-vulnerable
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./files:/app/files
+    environment:
+      - FLASK_APP=app.py
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Application sécurisée (pour comparaison)
+  app-secure:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bibliotheque-secure
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./files:/app/files
+      - ./app_secure.py:/app/app.py:ro
+    environment:
+      - FLASK_APP=app.py
+      - PYTHONUNBUFFERED=1
+      - FLASK_DEBUG=false
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,12 @@
+# Partie 1 - Application Flask
+Flask==3.0.0
+Werkzeug==3.0.1
+pytest==7.4.3
+pytest-cov==4.1.0
+coverage==7.3.2
+
+# Partie 2 - Challenges de sécurité
+requests==2.31.0
+colorama==0.4.6
+PyJWT==2.8.0
+cryptography==41.0.7
