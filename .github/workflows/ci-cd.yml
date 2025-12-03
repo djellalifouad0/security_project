@@ -34,33 +34,13 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Scan Trivy de l'image vulnérable
-      - name: Scan Trivy - Image Vulnérable (Table)
+      - name: Scan Trivy - Image Vulnérable
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
-          exit-code: '0'
-
-      - name: Scan Trivy - Image Vulnérable (JSON)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
-          format: 'json'
-          output: 'trivy-report-vulnerable.json'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
-          exit-code: '0'
-
-      - name: Scan Trivy - Image Vulnérable (SARIF)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
-          format: 'sarif'
-          output: 'trivy-report-vulnerable.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
       # Build de l'image sécurisée
@@ -71,33 +51,13 @@ jobs:
           git checkout app.py
 
       # Scan Trivy de l'image sécurisée
-      - name: Scan Trivy - Image Sécurisée (Table)
+      - name: Scan Trivy - Image Sécurisée
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
-          exit-code: '0'
-
-      - name: Scan Trivy - Image Sécurisée (JSON)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
-          format: 'json'
-          output: 'trivy-report-secure.json'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
-          exit-code: '0'
-
-      - name: Scan Trivy - Image Sécurisée (SARIF)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
-          format: 'sarif'
-          output: 'trivy-report-secure.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
       # Test de l'image vulnérable
@@ -118,47 +78,26 @@ jobs:
           docker stop test-secure
           docker rm test-secure
 
-      # Upload des rapports SARIF vers GitHub Security
-      - name: Upload SARIF - Image Vulnérable
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-report-vulnerable.sarif'
-          category: 'trivy-vulnerable'
-
-      - name: Upload SARIF - Image Sécurisée
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-report-secure.sarif'
-          category: 'trivy-secure'
-
-      # Upload des rapports Trivy en tant qu'artefacts
-      - name: Upload Rapports Trivy
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: trivy-reports
-          path: |
-            trivy-report-vulnerable.json
-            trivy-report-vulnerable.sarif
-            trivy-report-secure.json
-            trivy-report-secure.sarif
-          retention-days: 30
-
-      - name: Résumé des scans
+      # Résumé visuel
+      - name: Résumé de l'analyse de sécurité
         run: |
           echo "## 🔒 Analyse de Sécurité Trivy" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Image Vulnérable** : Scannée (vulnérabilités attendues)" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Image Sécurisée** : Scannée (moins de vulnérabilités)" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Résultats des scans :" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Rapports disponibles :" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Statut | Description |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|-------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔓 **Vulnérable** | ✅ Scannée | Contient des vulnérabilités intentionnelles (SQLi, Path Traversal) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔐 **Sécurisée** | ✅ Scannée | Version corrigée avec protections implémentées |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **GitHub Security** : Onglet Security → Code scanning alerts" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Artefacts** : Téléchargez 'trivy-reports' (JSON + SARIF)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🧪 Tests fonctionnels :" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Les deux images ont été testées avec succès !" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Image vulnérable démarrée et testée avec succès" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Image sécurisée démarrée et testée avec succès" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Les rapports détaillés Trivy sont disponibles dans les logs ci-dessus** 📋" >> $GITHUB_STEP_SUMMARY
 
   # Job 2: Push vers Docker Hub
   docker-push:
@@ -203,17 +142,22 @@ jobs:
 
       - name: Résumé de la publication
         run: |
-          echo "## 🐳 Images Docker Publiées" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 Publication Docker Hub" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Images disponibles :" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Images publiées avec succès" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**1. Version Vulnérable (démo) :**" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | Description | Commande |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| \`vulnerable\` | Version avec vulnérabilités | \`docker pull ${{ env.DOCKER_IMAGE_NAME }}:vulnerable\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`latest\` | Alias de vulnerable | \`docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`secure\` | Version sécurisée | \`docker pull ${{ env.DOCKER_IMAGE_NAME }}:secure\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Démarrage rapide" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.DOCKER_IMAGE_NAME }}:vulnerable" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "# Lancer la version vulnérable" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d -p 5000:5000 ${{ env.DOCKER_IMAGE_NAME }}:vulnerable" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**2. Version Sécurisée :**" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.DOCKER_IMAGE_NAME }}:secure" >> $GITHUB_STEP_SUMMARY
+          echo "# Lancer la version sécurisée" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d -p 5000:5000 ${{ env.DOCKER_IMAGE_NAME }}:secure" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
