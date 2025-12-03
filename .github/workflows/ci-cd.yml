@@ -53,14 +53,13 @@ jobs:
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
-      - name: Scan Trivy - Image Vulnérable (HTML)
+      - name: Scan Trivy - Image Vulnérable (SARIF)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ env.DOCKER_IMAGE_NAME }}:vulnerable
-          format: 'template'
-          template: '@/contrib/html.tpl'
-          output: 'trivy-report-vulnerable.html'
+          format: 'sarif'
+          output: 'trivy-report-vulnerable.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
@@ -91,14 +90,13 @@ jobs:
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
-      - name: Scan Trivy - Image Sécurisée (HTML)
+      - name: Scan Trivy - Image Sécurisée (SARIF)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           image-ref: ${{ env.DOCKER_IMAGE_NAME }}:secure
-          format: 'template'
-          template: '@/contrib/html.tpl'
-          output: 'trivy-report-secure.html'
+          format: 'sarif'
+          output: 'trivy-report-secure.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
 
@@ -120,6 +118,21 @@ jobs:
           docker stop test-secure
           docker rm test-secure
 
+      # Upload des rapports SARIF vers GitHub Security
+      - name: Upload SARIF - Image Vulnérable
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-report-vulnerable.sarif'
+          category: 'trivy-vulnerable'
+
+      - name: Upload SARIF - Image Sécurisée
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-report-secure.sarif'
+          category: 'trivy-secure'
+
       # Upload des rapports Trivy en tant qu'artefacts
       - name: Upload Rapports Trivy
         uses: actions/upload-artifact@v4
@@ -128,9 +141,9 @@ jobs:
           name: trivy-reports
           path: |
             trivy-report-vulnerable.json
-            trivy-report-vulnerable.html
+            trivy-report-vulnerable.sarif
             trivy-report-secure.json
-            trivy-report-secure.html
+            trivy-report-secure.sarif
           retention-days: 30
 
       - name: Résumé des scans
@@ -140,7 +153,10 @@ jobs:
           echo "✅ **Image Vulnérable** : Scannée (vulnérabilités attendues)" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Image Sécurisée** : Scannée (moins de vulnérabilités)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📊 **Rapports disponibles** : Téléchargez les artefacts 'trivy-reports'" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Rapports disponibles :" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **GitHub Security** : Onglet Security → Code scanning alerts" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Artefacts** : Téléchargez 'trivy-reports' (JSON + SARIF)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Les deux images ont été testées avec succès !" >> $GITHUB_STEP_SUMMARY
 
